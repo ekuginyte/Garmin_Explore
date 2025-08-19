@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sleep Dashboard</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f4f6f8;
+    }
+    .chart-container {
+      margin-bottom: 40px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📊 Sleep Dashboard</h1>
+  <div class="chart-container">
+    <h2>Total Sleep Hours</h2>
+    <div id="totalSleep"></div>
+  </div>
+  <div class="chart-container">
+    <h2>Sleep Stages Breakdown</h2>
+    <div id="sleepStages"></div>
+  </div>
+
+  <script>
+    // Load JSON (replace with your actual path or fetch from repo)
+    fetch("114492112_userBioMetrics.json")
+      .then(response => response.json())
+      .then(data => {
+        // Convert seconds to hours
+        data.forEach(d => {
+          d.totalSleepHours = (d.deepSleepSeconds + d.lightSleepSeconds + d.remSleepSeconds) / 3600;
+          d.deepSleepHours = d.deepSleepSeconds / 3600;
+          d.lightSleepHours = d.lightSleepSeconds / 3600;
+          d.remSleepHours = d.remSleepSeconds / 3600;
+          d.awakeSleepHours = d.awakeSleepSeconds / 3600;
+        });
+
+        // === Line Chart: Total Sleep Hours ===
+        Plotly.newPlot("totalSleep", [{
+          x: data.map(d => d.calendarDate),
+          y: data.map(d => d.totalSleepHours),
+          type: "scatter",
+          mode: "lines+markers",
+          name: "Total Sleep",
+          line: { shape: "spline", color: "#2E86AB" }
+        }], {
+          title: "Total Sleep Hours",
+          yaxis: { title: "Hours" },
+          xaxis: { title: "Date" }
+        });
+
+        // === Stacked Bar Chart: Sleep Stages ===
+        let stages = ["deepSleepHours", "lightSleepHours", "remSleepHours", "awakeSleepHours"];
+        let colors = ["#003f5c", "#7a5195", "#ef5675", "#ffa600"];
+        let traces = stages.map((stage, i) => ({
+          x: data.map(d => d.calendarDate),
+          y: data.map(d => d[stage]),
+          type: "bar",
+          name: stage.replace("Hours", "").replace("Sleep", " Sleep"),
+          marker: { color: colors[i] }
+        }));
+
+        Plotly.newPlot("sleepStages", traces, {
+          barmode: "stack",
+          title: "Sleep Stage Breakdown",
+          yaxis: { title: "Hours" },
+          xaxis: { title: "Date" }
+        });
+      });
+  </script>
+</body>
+</html>

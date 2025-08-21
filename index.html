@@ -47,11 +47,16 @@
           type: "scatter",
           mode: "lines+markers",
           name: "Total Sleep",
-          line: { shape: "spline", color: "#2E86AB" }
+          line: { shape: "spline", color: "#2E86AB", width: 3 },
+          marker: { size: 8, color: "#1f77b4" },
+          hovertemplate: '%{y:.2f} hours<br>Date: %{x}<extra></extra>'
         }], {
-          title: "Total Sleep Hours",
-          yaxis: { title: "Hours" },
-          xaxis: { title: "Date" }
+          title: { text: "💤 Total Sleep Hours", font: { size: 22 } },
+          yaxis: { title: "Hours", gridcolor: "#ddd" },
+          xaxis: { title: "Date", tickangle: -45 },
+          plot_bgcolor: "#f9f9f9",
+          paper_bgcolor: "#f4f6f8",
+          font: { family: "Arial, sans-serif", size: 14 }
         });
 
         // === Stacked Bar Chart: Sleep Stages ===
@@ -62,7 +67,8 @@
           y: data.map(d => d[stage]),
           type: "bar",
           name: stage.replace("Hours", "").replace("Sleep", " Sleep"),
-          marker: { color: colors[i] }
+          marker: { color: colors[i] },
+          hovertemplate: '%{y:.2f} hours<br>Date: %{x}<extra></extra>'
         }));
 
         Plotly.newPlot("sleepStages", traces, {

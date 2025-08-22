@@ -32,11 +32,27 @@ def load_sleep_data():
                     print("Skipping {filename}: {e}")
 
     # To pd DataFrame
-    sleep_df = pd.DataFrame(sleep_records)
+    #sleep_df = pd.DataFrame(sleep_records)
+    sleep_df = pd.json_normalize(sleep_records, sep="_")
+
+
+    # Define which columns should be datetimes
+    date_columns = [
+        "sleepStartTimestampGMT",
+        "sleepEndTimestampGMT",
+        "calendarDate",
+        "spo2SleepSummary_sleepMeasurementStartGMT",
+        "spo2SleepSummary_sleepMeasurementEndGMT"
+    ]
+
+    # Convert them to datetime, safely (errors="coerce" makes invalid dates into NaT)
+    for col in date_columns:
+        if col in sleep_df.columns:
+            sleep_df[col] = pd.to_datetime(sleep_df[col], errors="coerce")
 
     # Sort by date
-    if "calendarDate" in sleep_df.columns:
-        df = df.sort_values("calendarDate")
+    sleep_df = sleep_df[sleep_df["calendarDate"].notna()]
+    sleep_df = sleep_df.sort_values("calendarDate")
 
     return sleep_df
 
@@ -47,6 +63,8 @@ if __name__ == "__main__":
 
     # Save to SILVER folder
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    output_path = os.path.join(current_dir, "..", "data", "SILVER", "sleep_data.xlsx")
-    df.to_excel(output_path, index=False)
+    output_path = os.path.join(current_dir, "..", "data", "SILVER", "sleep_data.csv")
+    df.to_csv(output_path, index=False)
     print("Saved data to SILVER!")
+
+

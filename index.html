@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Sleep Dashboard</title>
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -12,38 +13,73 @@
     }
     .chart-container {
       margin-bottom: 40px;
+      padding: 10px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    h2 {
+      margin-bottom: 10px;
     }
   </style>
 </head>
 <body>
   <h1>📊 Sleep Dashboard</h1>
+
   <div class="chart-container">
     <h2>Total Sleep Hours</h2>
     <div id="totalSleep"></div>
   </div>
+
   <div class="chart-container">
     <h2>Sleep Stages Breakdown</h2>
     <div id="sleepStages"></div>
   </div>
 
+  <div class="chart-container">
+    <h2>Average SPO₂</h2>
+    <div id="spo2Chart"></div>
+  </div>
+
+  <div class="chart-container">
+    <h2>Average Heart Rate</h2>
+    <div id="hrChart"></div>
+  </div>
+
+  <div class="chart-container">
+    <h2>Sleep Score</h2>
+    <div id="scoreChart"></div>
+  </div>
+
   <script>
-    // Load JSON
-    fetch("114492112_userBioMetrics.json")
-      .then(response => response.json())
-      .then(data => {
-        // Convert seconds to hours
-        data.forEach(d => {
+    fetch("sleep_data.csv")
+      .then(response => response.text())
+      .then(csvText => {
+        const data = Papa.parse(csvText, { header: true, dynamicTyping: true }).data;
+
+        // Clean empty rows (PapaParse often adds an extra at the end)
+        const cleanData = data.filter(d => d.calendarDate);
+
+        // Convert seconds → hours and extract extra metrics
+        cleanData.forEach(d => {
           d.totalSleepHours = (d.deepSleepSeconds + d.lightSleepSeconds + d.remSleepSeconds) / 3600;
           d.deepSleepHours = d.deepSleepSeconds / 3600;
           d.lightSleepHours = d.lightSleepSeconds / 3600;
           d.remSleepHours = d.remSleepSeconds / 3600;
           d.awakeSleepHours = d.awakeSleepSeconds / 3600;
+          d.averageSPO2 = d.spo2SleepSummary_averageSPO2;
+          d.averageHR = d.spo2SleepSummary_averageHR;
+          d.sleepScore = d.sleepScores_overallScore;
         });
 
-        // === Line Chart: Total Sleep Hours ===
+        // === Total Sleep Hours ===
         Plotly.newPlot("totalSleep", [{
-          x: data.map(d => d.calendarDate),
-          y: data.map(d => d.totalSleepHours),
+          x: cleanData.map(d => d.calendarDate),
+          y: cleanData.map(d => d.totalSleepHours),
           type: "scatter",
           mode: "lines+markers",
           name: "Total Sleep",
@@ -51,23 +87,25 @@
           marker: { size: 8, color: "#1f77b4" },
           hovertemplate: '%{y:.2f} hours<br>Date: %{x}<extra></extra>'
         }], {
-          title: { text: "💤 Total Sleep Hours", font: { size: 22 } },
-          yaxis: { title: "Hours", gridcolor: "#ddd" },
-          xaxis: { title: "Date", tickangle: -45 },
-          plot_bgcolor: "#f9f9f9",
-          paper_bgcolor: "#f4f6f8",
-          font: { family: "Arial, sans-serif", size: 14 }
+          title: "💤 Total Sleep Hours",
+          yaxis: { title: "Hours" },
+          xaxis: { title: "Date", tickangle: -45 }
         });
 
-        // === Stacked Bar Chart: Sleep Stages ===
-        let stages = ["deepSleepHours", "lightSleepHours", "remSleepHours", "awakeSleepHours"];
-        let colors = ["#003f5c", "#7a5195", "#ef5675", "#ffa600"];
-        let traces = stages.map((stage, i) => ({
-          x: data.map(d => d.calendarDate),
-          y: data.map(d => d[stage]),
+        // === Sleep Stages Breakdown ===
+        let stages = [
+          { key: "deepSleepHours", label: "Deep Sleep", color: "#003f5c" },
+          { key: "lightSleepHours", label: "Light Sleep", color: "#7a5195" },
+          { key: "remSleepHours", label: "REM Sleep", color: "#ef5675" },
+          { key: "awakeSleepHours", label: "Awake", color: "#ffa600" }
+        ];
+
+        let traces = stages.map(stage => ({
+          x: cleanData.map(d => d.calendarDate),
+          y: cleanData.map(d => d[stage.key]),
           type: "bar",
-          name: stage.replace("Hours", "").replace("Sleep", " Sleep"),
-          marker: { color: colors[i] },
+          name: stage.label,
+          marker: { color: stage.color },
           hovertemplate: '%{y:.2f} hours<br>Date: %{x}<extra></extra>'
         }));
 
@@ -75,8 +113,50 @@
           barmode: "stack",
           title: "Sleep Stage Breakdown",
           yaxis: { title: "Hours" },
-          xaxis: { title: "Date" }
+          xaxis: { title: "Date", tickangle: -45 }
         });
+
+        // === Average SPO2 ===
+        Plotly.newPlot("spo2Chart", [{
+          x: cleanData.map(d => d.calendarDate),
+          y: cleanData.map(d => d.averageSPO2),
+          type: "scatter",
+          mode: "lines+markers",
+          line: { color: "#ff5733", width: 3 },
+          hovertemplate: '%{y:.1f}% SPO₂<br>Date: %{x}<extra></extra>'
+        }], {
+          title: "Average SPO₂ during Sleep",
+          yaxis: { title: "SPO₂ (%)", range: [85, 100] },
+          xaxis: { title: "Date", tickangle: -45 }
+        });
+
+        // === Average HR ===
+        Plotly.newPlot("hrChart", [{
+          x: cleanData.map(d => d.calendarDate),
+          y: cleanData.map(d => d.averageHR),
+          type: "scatter",
+          mode: "lines+markers",
+          line: { color: "#d62728", width: 3 },
+          hovertemplate: '%{y} bpm<br>Date: %{x}<extra></extra>'
+        }], {
+          title: "Average Heart Rate during Sleep",
+          yaxis: { title: "BPM" },
+          xaxis: { title: "Date", tickangle: -45 }
+        });
+
+        // === Sleep Score ===
+        Plotly.newPlot("scoreChart", [{
+          x: cleanData.map(d => d.calendarDate),
+          y: cleanData.map(d => d.sleepScore),
+          type: "bar",
+          marker: { color: "#17becf" },
+          hovertemplate: 'Score: %{y}<br>Date: %{x}<extra></extra>'
+        }], {
+          title: "Sleep Scores",
+          yaxis: { title: "Score (0-100)", range: [0, 100] },
+          xaxis: { title: "Date", tickangle: -45 }
+        });
+
       });
   </script>
 </body>

@@ -33,7 +33,7 @@
     // Load CSV
     d3.csv("data/sleep_data.csv").then(function(rawData) {
       const cleanData = rawData.map(d => ({
-        date: d.date,
+        date: d.calendarDate,        // was d.date
         deepSleepSeconds: +d.deepSleepSeconds,
         lightSleepSeconds: +d.lightSleepSeconds,
         remSleepSeconds: +d.remSleepSeconds,

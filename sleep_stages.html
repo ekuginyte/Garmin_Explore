@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sleep Stages Dashboard</title>
+  <title>Sleep!</title>
 
   <!-- Plotly for charts -->
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
@@ -12,158 +12,215 @@
 
   <style>
     body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      background: #f9f9f9;
-      color: #333;
+      margin: 0;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      background: #121212;
+      color: #f0f0f0;
     }
     h1 {
       text-align: center;
+      margin: 20px 0;
+      font-weight: 300;
+      letter-spacing: 1px;
+    }
+    #filters {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
       margin-bottom: 20px;
     }
-    .chart {
-      width: 90%;
-      max-width: 1000px;
-      margin: 30px auto;
+    #filters button {
+      background: #1f1f1f;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 20px;
+      color: #f0f0f0;
+      cursor: pointer;
+      font-size: 16px;
+      transition: 0.2s;
+    }
+    #filters button:hover, #filters button.active {
+      background: #2c2c2c;
+    }
+    #charts-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 25px;
+      padding: 0 20px 40px 20px;
+    }
+    .chart-card {
+      background: #1c1c1c;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+    .chart-title {
+      text-align: center;
+      font-weight: 400;
+      margin-bottom: 8px;
+      font-size: 18px;
     }
   </style>
 </head>
 <body>
-  <h1>Sleep Stages Dashboard</h1>
+  <h1>Sleep!</h1>
 
-  <!-- Chart container -->
-  <div id="sleep-chart" class="chart"></div>
+  <div id="filters">
+    <button data-range="7" class="active">Last 7 Days</button>
+    <button data-range="30">Last Month</button>
+    <button data-range="365">Last Year</button>
+  </div>
+
+  <div id="charts-container">
+    <div class="chart-card">
+      <div class="chart-title">💤 Deep Sleep</div>
+      <div id="deep-chart" style="height:300px;"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">🌙 Light Sleep</div>
+      <div id="light-chart" style="height:300px;"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">🌸 REM Sleep</div>
+      <div id="rem-chart" style="height:300px;"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">☀️ Twisting & Turning</div>
+      <div id="awake-chart" style="height:300px;"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">🛌 Total Sleep</div>
+      <div id="total-chart" style="height:300px;"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">(Future: Stress)</div>
+      <div id="empty-chart" style="height:300px;"></div>
+    </div>
+  </div>
 
   <script>
-    // Load CSV data
+  const stages = [
+    { key: "deep", label: "Deep Sleep", recommendedMin: 1.2, recommendedMax: 2, color:"#1f3b4d", div:"deep-chart" },
+    { key: "light", label: "Light Sleep", recommendedMin: 2.8, recommendedMax: 4, color:"#7a5195", div:"light-chart" },
+    { key: "rem", label: "REM Sleep", recommendedMin: 1.6, recommendedMax: 2, color:"#ef5675", div:"rem-chart" },
+    { key: "awake", label: "Awake", recommendedMin: 0, recommendedMax: 0, color:"#ffa600", div:"awake-chart" },
+    { key: "total", label: "Total Sleep", recommendedMin: 7.5, recommendedMax: 8.5, color:"#2ca02c", div:"total-chart" }
+  ];
+
+    let rawDataGlobal = [];
+    let filteredMaxTotal;
+
     d3.csv("data/sleep_data.csv").then(function(rawData) {
-
-      // --- Data cleaning & conversion ---
-      // Map CSV to numeric values and calendarDate
-      let cleanData = rawData.map(d => ({
-        date: d.calendarDate,
-        deepSleepSeconds: +d.deepSleepSeconds,
-        lightSleepSeconds: +d.lightSleepSeconds,
-        remSleepSeconds: +d.remSleepSeconds,
-        awakeSleepSeconds: +d.awakeSleepSeconds
-      }));
-
-      // Filter out rows with no sleep data
-      cleanData = cleanData.filter(d =>
-        !isNaN(d.deepSleepSeconds) ||
-        !isNaN(d.lightSleepSeconds) ||
-        !isNaN(d.remSleepSeconds) ||
-        !isNaN(d.awakeSleepSeconds)
-      );
-
-      // Convert seconds to hours
-      cleanData.forEach(d => {
-        d.deepSleepHours = (d.deepSleepSeconds || 0) / 3600;
-        d.lightSleepHours = (d.lightSleepSeconds || 0) / 3600;
-        d.remSleepHours   = (d.remSleepSeconds   || 0) / 3600;
-        d.awakeSleepHours = (d.awakeSleepSeconds || 0) / 3600;
+      rawDataGlobal = rawData.map(d => {
+        const dateStr = d.calendarDate.trim();       // remove spaces
+        const [y,m,day] = dateStr.split('-').map(Number);
+        const date = new Date(y,m-1,day);           // month 0-indexed
+        return {
+          date: date,
+          deep: +d.deepSleepSeconds/3600 || 0,
+          light: +d.lightSleepSeconds/3600 || 0,
+          rem: +d.remSleepSeconds/3600 || 0,
+          awake: +d.awakeSleepSeconds/3600 || 0,
+          total: ((+d.deepSleepSeconds||0) + (+d.lightSleepSeconds||0) + (+d.remSleepSeconds||0) + (+d.awakeSleepSeconds||0))/3600
+        };
       });
 
-      // --- Define sleep stages for plotting ---
-      const stages = [
-        { key: "deepSleepHours", label: "Deep Sleep", color: "#003f5c", recommended: 1.5 },
-        { key: "lightSleepHours", label: "Light Sleep", color: "#7a5195", recommended: 4.0 },
-        { key: "remSleepHours",   label: "REM Sleep",  color: "#ef5675", recommended: 2.0 },
-        { key: "awakeSleepHours", label: "Awake",      color: "#ffa600", recommended: 0 }
-      ];
+      console.log("Parsed dates:", rawDataGlobal.map(d=>d.date)); // sanity check
 
-      // --- Prepare traces for line chart ---
-      const traces = stages.map(stage => ({
-        x: cleanData.map(d => d.date),
-        y: cleanData.map(d => d[stage.key]),
-        name: stage.label,
-        type: "scatter",
-        mode: "lines+markers",
-        line: { color: stage.color, width: 2 },
-        marker: { size: 6 }
-      }));
+      filteredMaxTotal = Math.max(...rawDataGlobal.map(d => d.total)) * 1.05;
 
-      // --- Layout configuration ---
-      const layout = {
-        title: "Sleep Stages Over Time",
-        xaxis: {
-          title: "Date",
-          showgrid: true,
-          gridcolor: "#eee"
-        },
-        yaxis: {
-          title: "Hours",
-          showgrid: true,
-          gridcolor: "#eee"
-        },
-        legend: { orientation: "h", y: -0.3 },
-        // Horizontal lines for recommended sleep stages
-        shapes: [
-          // Recommended horizontal lines
-          ...stages.map(stage => ({
-            type: "line",
-            xref: "paper", // span entire chart width
-            x0: 0,
-            x1: 1,
-            y0: stage.recommended,
-            y1: stage.recommended,
-            line: { color: stage.color, width: 1.5, dash: "dash" },
-          })),
-          // Vertical lines for Garmin devices
-          {
-            type: "line",
-            xref: "x",
-            yref: "paper",
-            x0: "2023-07-10",
-            x1: "2023-07-10",
-            y0: 0,
-            y1: 1,
-            line: { color: "black", width: 2, dash: "dot" }
-          },
-          {
-            type: "line",
-            xref: "x",
-            yref: "paper",
-            x0: "2025-07-03",
-            x1: "2025-07-03",
-            y0: 0,
-            y1: 1,
-            line: { color: "black", width: 2, dash: "dot" }
-          }
-        ],
-        annotations: [
-          // Annotate Garmin periods
-          {
-            x: "2023-07-10",
-            y: 0,
-            xref: "x",
-            yref: "y",
-            text: "Vivoactive 4s",
-            showarrow: true,
-            arrowhead: 2,
-            ax: 0,
-            ay: -40
-          },
-          {
-            x: "2025-07-03",
-            y: 0,
-            xref: "x",
-            yref: "y",
-            text: "Forerunner 965",
-            showarrow: true,
-            arrowhead: 2,
-            ax: 0,
-            ay: -40
-          }
-        ]
-      };
-
-      // --- Render the chart ---
-      Plotly.newPlot("sleep-chart", traces, layout);
-
-    }).catch(err => {
-      console.error("Error loading CSV:", err);
+      renderCharts(7, filteredMaxTotal);
     });
+          
+      function renderCharts(days, filteredMaxTotal) {
+          if (rawDataGlobal.length === 0) return;
+
+          // Use the max date in your data
+          const maxDate = new Date(Math.max(...rawDataGlobal.map(d => d.date)));
+
+          const endDate = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate());
+          const startDate = new Date(endDate);
+          startDate.setDate(endDate.getDate() - days + 1); // last N days
+
+          const filteredData = rawDataGlobal.filter(d => {
+              const dDate = new Date(d.date.getFullYear(), d.date.getMonth(), d.date.getDate());
+              return dDate >= startDate && dDate <= endDate;
+          });
+
+          if(filteredData.length === 0){
+              stages.forEach(stage => {
+                  document.getElementById(stage.div).innerHTML = "<p style='text-align:center;color:#f0f0f0;margin-top:120px;'>No data for this range</p>";
+              });
+              return;
+          }
+
+      stages.forEach(stage => {
+    
+        const trace = {
+          x: filteredData.map(d=>d.date),
+          y: filteredData.map(d=>d[stage.key]),
+          mode: 'lines',
+          line: { color: stage.color, width:3, shape:'spline' },
+          type: 'scatter',
+          fill: stage.key!=='awake'? 'tonexty':'none',
+          fillcolor: stage.key!=='awake'? stage.color+'33':'transparent',
+          hovertemplate: '%{y:.2f} hours<br>%{x|%a %d %b}'
+        };
+
+        const rec = {
+          x: [filteredData[0].date, filteredData[filteredData.length-1].date],
+          y: [stage.recommendedMin, stage.recommendedMin],
+          type: 'scatter',
+          mode:'lines',
+          line:{color: stage.color, width:0},
+          fill:'tonexty',
+          fillcolor: stage.color+'22',
+          showlegend:false,
+          hoverinfo:'skip'
+        };
+
+        const recMax = {
+          x: [filteredData[0].date, filteredData[filteredData.length-1].date],
+          y: [stage.recommendedMax, stage.recommendedMax],
+          type: 'scatter',
+          mode:'lines',
+          line:{color: stage.color, width:0},
+          fill:'tonexty',
+          fillcolor:'transparent',
+          showlegend:false,
+          hoverinfo:'skip'
+        };
+
+        Plotly.newPlot(stage.div, [rec, recMax, trace], {
+          margin:{l:40,r:20,t:30,b:40},
+          paper_bgcolor:'#1c1c1c',
+          plot_bgcolor:'#121212',
+          xaxis:{
+            tickformat:'%a %d %b',
+            color:'#f0f0f0',
+            showgrid:true,
+            gridcolor:'#333'
+          },
+          yaxis:{
+            range:[0, filteredMaxTotal],
+            color:'#f0f0f0',
+            showgrid:true,
+            gridcolor:'#333'
+          },
+          showlegend:false,
+          transitions:{duration:800, easing:'cubic-in-out'}
+        });
+      });
+    }
+
+    document.querySelectorAll('#filters button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#filters button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        renderCharts(+btn.dataset.range);
+      });
+    });
+  
   </script>
 </body>
 </html>

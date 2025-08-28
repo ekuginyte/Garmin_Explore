@@ -3,92 +3,65 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sleep Stages Visualization</title>
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <title>Sleep Data Check</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      background: #f9f9f9;
-      color: #333;
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    .chart {
+    table {
+      border-collapse: collapse;
       width: 90%;
-      max-width: 1000px;
-      margin: 30px auto;
+      margin: 20px auto;
+    }
+    th, td {
+      border: 1px solid #999;
+      padding: 5px 10px;
+      text-align: center;
+    }
+    th {
+      background: #eee;
     }
   </style>
 </head>
 <body>
-  <h1>Sleep Stages Dashboard</h1>
-  <div id="stacked-bar" class="chart"></div>
-  <div id="trend-line" class="chart"></div>
+  <h1>Sleep Data Check</h1>
+  <div id="table-container"></div>
 
   <script>
-    // Load CSV
     d3.csv("data/sleep_data.csv").then(function(rawData) {
-      const cleanData = rawData.map(d => ({
-        date: d.calendarDate,        // was d.date
-        deepSleepSeconds: +d.deepSleepSeconds,
-        lightSleepSeconds: +d.lightSleepSeconds,
-        remSleepSeconds: +d.remSleepSeconds,
-        awakeSleepSeconds: +d.awakeSleepSeconds
-      }));
+      console.log("Raw CSV Data:", rawData);  // check console
 
-      // Convert to hours
-      cleanData.forEach(d => {
-        d.deepSleepHours = (d.deepSleepSeconds || 0) / 3600;
-        d.lightSleepHours = (d.lightSleepSeconds || 0) / 3600;
-        d.remSleepHours   = (d.remSleepSeconds   || 0) / 3600;
-        d.awakeSleepHours = (d.awakeSleepSeconds || 0) / 3600;
+      // Take first 10 rows
+      const data = rawData.slice(0, 10);
+
+      // Create table
+      const table = document.createElement("table");
+      const thead = document.createElement("thead");
+      const tbody = document.createElement("tbody");
+
+      // Table header
+      const headerRow = document.createElement("tr");
+      Object.keys(data[0]).forEach(col => {
+        const th = document.createElement("th");
+        th.textContent = col;
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+
+      // Table body
+      data.forEach(row => {
+        const tr = document.createElement("tr");
+        Object.values(row).forEach(val => {
+          const td = document.createElement("td");
+          td.textContent = val;
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
       });
 
-      // Define stages
-      const stages = [
-        { key: "deepSleepHours", label: "Deep Sleep", color: "#003f5c" },
-        { key: "lightSleepHours", label: "Light Sleep", color: "#7a5195" },
-        { key: "remSleepHours",   label: "REM Sleep",  color: "#ef5675" },
-        { key: "awakeSleepHours", label: "Awake",      color: "#ffa600" }
-      ];
-
-      // --- Stacked Bar Chart ---
-      const barTraces = stages.map(stage => ({
-        x: cleanData.map(d => d.date),
-        y: cleanData.map(d => d[stage.key]),
-        name: stage.label,
-        type: "bar",
-        marker: { color: stage.color }
-      }));
-
-      Plotly.newPlot("stacked-bar", barTraces, {
-        barmode: "stack",
-        title: "Sleep Stages per Night",
-        xaxis: { title: "Date" },
-        yaxis: { title: "Hours" },
-        legend: { orientation: "h", y: -0.3 }
-      });
-
-      // --- Line Chart (Trend) ---
-      const lineTraces = stages.map(stage => ({
-        x: cleanData.map(d => d.date),
-        y: cleanData.map(d => d[stage.key]),
-        name: stage.label,
-        type: "scatter",
-        mode: "lines+markers",
-        line: { color: stage.color, width: 2 }
-      }));
-
-      Plotly.newPlot("trend-line", lineTraces, {
-        title: "Sleep Trends Over Time",
-        xaxis: { title: "Date" },
-        yaxis: { title: "Hours" },
-        legend: { orientation: "h", y: -0.3 }
-      });
+      table.appendChild(thead);
+      table.appendChild(tbody);
+      document.getElementById("table-container").appendChild(table);
+    }).catch(err => {
+      console.error("Error loading CSV:", err);
     });
   </script>
 </body>

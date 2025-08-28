@@ -35,29 +35,40 @@
   </div>
 
   <script>
-    // Load your CSV (place sleep_data.csv in same folder as this HTML)
     fetch("sleep_data.csv")
-      .then(response => response.text())
+      .then(response => {
+        if (!response.ok) {
+          throw new Error("CSV file not found. Make sure sleep_data.csv is in the same folder.");
+        }
+        return response.text();
+      })
       .then(csvText => {
         const data = Papa.parse(csvText, { header: true, dynamicTyping: true }).data;
 
         // Clean empty rows
         const cleanData = data.filter(d => d.calendarDate);
 
+        console.log("Loaded rows:", cleanData.length); // ✅ Debugging
+
+        if (cleanData.length === 0) {
+          document.getElementById("sleepStages").innerHTML = "<p style='color:red'>No data found in CSV</p>";
+          return;
+        }
+
         // Convert to hours
         cleanData.forEach(d => {
-          d.deepSleepHours = d.deepSleepSeconds / 3600;
-          d.lightSleepHours = d.lightSleepSeconds / 3600;
-          d.remSleepHours = d.remSleepSeconds / 3600;
-          d.awakeSleepHours = d.awakeSleepSeconds / 3600;
+          d.deepSleepHours = (d.deepSleepSeconds || 0) / 3600;
+          d.lightSleepHours = (d.lightSleepSeconds || 0) / 3600;
+          d.remSleepHours   = (d.remSleepSeconds   || 0) / 3600;
+          d.awakeSleepHours = (d.awakeSleepSeconds || 0) / 3600;
         });
 
         // Define stages
         const stages = [
           { key: "deepSleepHours", label: "Deep Sleep", color: "#003f5c" },
           { key: "lightSleepHours", label: "Light Sleep", color: "#7a5195" },
-          { key: "remSleepHours", label: "REM Sleep", color: "#ef5675" },
-          { key: "awakeSleepHours", label: "Awake", color: "#ffa600" }
+          { key: "remSleepHours",   label: "REM Sleep",  color: "#ef5675" },
+          { key: "awakeSleepHours", label: "Awake",      color: "#ffa600" }
         ];
 
         // Build traces
@@ -74,13 +85,17 @@
         Plotly.newPlot("sleepStages", traces, {
           barmode: "stack",
           title: { text: "Sleep Stage Breakdown", font: { size: 22 } },
-          xaxis: { title: "Date", tickangle: -45, type: "category", tickfont: { size: 12 } },
+          xaxis: { title: "Date", tickangle: -45, type: "date", tickfont: { size: 12 } },
           yaxis: { title: "Hours", gridcolor: "#eaeaea" },
           legend: { title: { text: "Stage" }, orientation: "h", y: -0.25 },
           margin: { l: 60, r: 30, t: 60, b: 100 },
           plot_bgcolor: "white",
           hovermode: "x unified"
         });
+      })
+      .catch(error => {
+        console.error("Error loading CSV:", error);
+        document.getElementById("sleepStages").innerHTML = "<p style='color:red'>Error loading CSV file</p>";
       });
   </script>
 </body>

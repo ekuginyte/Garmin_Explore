@@ -2,101 +2,94 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Sleep Stages Breakdown</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sleep Stages Visualization</title>
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 30px;
-      background: #f4f6f8;
+      margin: 20px;
+      background: #f9f9f9;
       color: #333;
-    }
-    .chart-container {
-      max-width: 1200px;
-      margin: auto;
-      padding: 20px;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
     h1 {
       text-align: center;
-      margin-bottom: 30px;
-      font-size: 28px;
+      margin-bottom: 20px;
+    }
+    .chart {
+      width: 90%;
+      max-width: 1000px;
+      margin: 30px auto;
     }
   </style>
 </head>
 <body>
-  <h1>🌙 Sleep Stages Breakdown by Night</h1>
-
-  <div class="chart-container">
-    <div id="sleepStages"></div>
-  </div>
+  <h1>Sleep Stages Dashboard</h1>
+  <div id="stacked-bar" class="chart"></div>
+  <div id="trend-line" class="chart"></div>
 
   <script>
-    fetch("sleep_data.csv")
-      .then(response => {
-        if (!response.ok) {
-          throw new Error("CSV file not found. Make sure sleep_data.csv is in the same folder.");
-        }
-        return response.text();
-      })
-      .then(csvText => {
-        const data = Papa.parse(csvText, { header: true, dynamicTyping: true }).data;
+    // Load CSV
+    d3.csv("data/sleep_data.csv").then(function(rawData) {
+      const cleanData = rawData.map(d => ({
+        date: d.date,
+        deepSleepSeconds: +d.deepSleepSeconds,
+        lightSleepSeconds: +d.lightSleepSeconds,
+        remSleepSeconds: +d.remSleepSeconds,
+        awakeSleepSeconds: +d.awakeSleepSeconds
+      }));
 
-        // Clean empty rows
-        const cleanData = data.filter(d => d.calendarDate);
-
-        console.log("Loaded rows:", cleanData.length); // ✅ Debugging
-
-        if (cleanData.length === 0) {
-          document.getElementById("sleepStages").innerHTML = "<p style='color:red'>No data found in CSV</p>";
-          return;
-        }
-
-        // Convert to hours
-        cleanData.forEach(d => {
-          d.deepSleepHours = (d.deepSleepSeconds || 0) / 3600;
-          d.lightSleepHours = (d.lightSleepSeconds || 0) / 3600;
-          d.remSleepHours   = (d.remSleepSeconds   || 0) / 3600;
-          d.awakeSleepHours = (d.awakeSleepSeconds || 0) / 3600;
-        });
-
-        // Define stages
-        const stages = [
-          { key: "deepSleepHours", label: "Deep Sleep", color: "#003f5c" },
-          { key: "lightSleepHours", label: "Light Sleep", color: "#7a5195" },
-          { key: "remSleepHours",   label: "REM Sleep",  color: "#ef5675" },
-          { key: "awakeSleepHours", label: "Awake",      color: "#ffa600" }
-        ];
-
-        // Build traces
-        let traces = stages.map(stage => ({
-          x: cleanData.map(d => d.calendarDate),
-          y: cleanData.map(d => d[stage.key]),
-          type: "bar",
-          name: stage.label,
-          marker: { color: stage.color },
-          hovertemplate: '%{y:.2f} hours<br>Date: %{x}<extra></extra>'
-        }));
-
-        // Plot
-        Plotly.newPlot("sleepStages", traces, {
-          barmode: "stack",
-          title: { text: "Sleep Stage Breakdown", font: { size: 22 } },
-          xaxis: { title: "Date", tickangle: -45, type: "date", tickfont: { size: 12 } },
-          yaxis: { title: "Hours", gridcolor: "#eaeaea" },
-          legend: { title: { text: "Stage" }, orientation: "h", y: -0.25 },
-          margin: { l: 60, r: 30, t: 60, b: 100 },
-          plot_bgcolor: "white",
-          hovermode: "x unified"
-        });
-      })
-      .catch(error => {
-        console.error("Error loading CSV:", error);
-        document.getElementById("sleepStages").innerHTML = "<p style='color:red'>Error loading CSV file</p>";
+      // Convert to hours
+      cleanData.forEach(d => {
+        d.deepSleepHours = (d.deepSleepSeconds || 0) / 3600;
+        d.lightSleepHours = (d.lightSleepSeconds || 0) / 3600;
+        d.remSleepHours   = (d.remSleepSeconds   || 0) / 3600;
+        d.awakeSleepHours = (d.awakeSleepSeconds || 0) / 3600;
       });
+
+      // Define stages
+      const stages = [
+        { key: "deepSleepHours", label: "Deep Sleep", color: "#003f5c" },
+        { key: "lightSleepHours", label: "Light Sleep", color: "#7a5195" },
+        { key: "remSleepHours",   label: "REM Sleep",  color: "#ef5675" },
+        { key: "awakeSleepHours", label: "Awake",      color: "#ffa600" }
+      ];
+
+      // --- Stacked Bar Chart ---
+      const barTraces = stages.map(stage => ({
+        x: cleanData.map(d => d.date),
+        y: cleanData.map(d => d[stage.key]),
+        name: stage.label,
+        type: "bar",
+        marker: { color: stage.color }
+      }));
+
+      Plotly.newPlot("stacked-bar", barTraces, {
+        barmode: "stack",
+        title: "Sleep Stages per Night",
+        xaxis: { title: "Date" },
+        yaxis: { title: "Hours" },
+        legend: { orientation: "h", y: -0.3 }
+      });
+
+      // --- Line Chart (Trend) ---
+      const lineTraces = stages.map(stage => ({
+        x: cleanData.map(d => d.date),
+        y: cleanData.map(d => d[stage.key]),
+        name: stage.label,
+        type: "scatter",
+        mode: "lines+markers",
+        line: { color: stage.color, width: 2 }
+      }));
+
+      Plotly.newPlot("trend-line", lineTraces, {
+        title: "Sleep Trends Over Time",
+        xaxis: { title: "Date" },
+        yaxis: { title: "Hours" },
+        legend: { orientation: "h", y: -0.3 }
+      });
+    });
   </script>
 </body>
 </html>

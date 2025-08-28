@@ -15,6 +15,7 @@ library(dplyr)
 library(readr)
 library(plotly)
 library(lubridate)
+```
 
 ### Project Aim
 The goal of this project is to analyse my sleep patterns and identify areas for improvement.
@@ -22,6 +23,7 @@ Examine sleep stages - deep, light, REM, awake, and total sleep — to see wheth
 
 ### Data downloaded from my personal Garmin account
 
+```
 # Load and process data
 sleep_data <- read_csv("data/sleep_data.csv") %>%
   mutate(
@@ -31,10 +33,11 @@ sleep_data <- read_csv("data/sleep_data.csv") %>%
     rem = remSleepSeconds / 3600,
     awake = awakeSleepSeconds / 3600,
     total = deep + light + rem + awake
-  )'''
-
+  )
 head(sleep_data)
+```
 
+```
 # Define targets
 stages <- tibble(
   key = c("deep", "light", "rem", "awake", "total"),
@@ -46,3 +49,4 @@ stages <- tibble(
 
 # Compute max y for uniform axes
 max_y <- max(sleep_data$total)*1.05
+```

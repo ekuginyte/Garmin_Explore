@@ -1,6 +1,7 @@
 import os
 import json
 import pandas as pd
+import matplotlib.pyplot as plt
 
 
 # Concat all available sleep data
@@ -68,3 +69,36 @@ if __name__ == "__main__":
     print("Saved data to SILVER!")
 
 
+df = pd.read_csv(r"/Users/ernakuginyte/Desktop/Project/Garmin_Explore/data/SILVER/sleep_data.csv")
+
+# Sleep Stages Duration Plot
+sleep_stages = df[["calendarDate", "deepSleepSeconds", "lightSleepSeconds", "remSleepSeconds", "awakeSleepSeconds"]].copy()
+
+# Convert seconds → hours
+for col in ["deepSleepSeconds", "lightSleepSeconds", "remSleepSeconds", "awakeSleepSeconds"]:
+    sleep_stages[col] = sleep_stages[col] / 3600
+
+sleep_stages.set_index("calendarDate", inplace=True)
+
+plt.figure(figsize=(12,6))
+sleep_stages.plot(kind="bar", stacked=True, figsize=(14,7), colormap="viridis", alpha=0.9)
+plt.ylabel("Hours")
+plt.title("Sleep Stages Breakdown by Night", fontsize=16)
+plt.legend(title="Stage")
+plt.tight_layout()
+plt.show()
+
+# Sleep Scores Trend
+plt.figure(figsize=(14,7))
+plt.plot(df["calendarDate"], df["sleepScores_overallScore"], marker="o", label="Overall Score", linewidth=2, color="black")
+plt.plot(df["calendarDate"], df["sleepScores_qualityScore"], marker="s", label="Quality Score", alpha=0.8)
+plt.plot(df["calendarDate"], df["sleepScores_durationScore"], marker="^", label="Duration Score", alpha=0.8)
+plt.plot(df["calendarDate"], df["sleepScores_recoveryScore"], marker="d", label="Recovery Score", alpha=0.8)
+
+plt.title("Sleep Scores Trend", fontsize=16)
+plt.xlabel("Date")
+plt.ylabel("Score")
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()

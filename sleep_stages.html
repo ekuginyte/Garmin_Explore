@@ -4,8 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sleep Stages Dashboard</title>
+
+  <!-- Plotly for charts -->
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <!-- D3 for CSV loading -->
   <script src="https://d3js.org/d3.v7.min.js"></script>
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -26,13 +30,15 @@
 </head>
 <body>
   <h1>Sleep Stages Dashboard</h1>
-  <div id="stacked-bar" class="chart"></div>
-  <div id="trend-line" class="chart"></div>
-  <div id="heatmap" class="chart"></div>
+
+  <!-- Chart container -->
+  <div id="sleep-chart" class="chart"></div>
 
   <script>
+    // Load CSV data
     d3.csv("data/sleep_data.csv").then(function(rawData) {
 
+      // --- Data cleaning & conversion ---
       // Map CSV to numeric values and calendarDate
       let cleanData = rawData.map(d => ({
         date: d.calendarDate,
@@ -58,63 +64,102 @@
         d.awakeSleepHours = (d.awakeSleepSeconds || 0) / 3600;
       });
 
-      // Define stages
+      // --- Define sleep stages for plotting ---
       const stages = [
-        { key: "deepSleepHours", label: "Deep Sleep", color: "#003f5c" },
-        { key: "lightSleepHours", label: "Light Sleep", color: "#7a5195" },
-        { key: "remSleepHours",   label: "REM Sleep",  color: "#ef5675" },
-        { key: "awakeSleepHours", label: "Awake",      color: "#ffa600" }
+        { key: "deepSleepHours", label: "Deep Sleep", color: "#003f5c", recommended: 1.5 },
+        { key: "lightSleepHours", label: "Light Sleep", color: "#7a5195", recommended: 4.0 },
+        { key: "remSleepHours",   label: "REM Sleep",  color: "#ef5675", recommended: 2.0 },
+        { key: "awakeSleepHours", label: "Awake",      color: "#ffa600", recommended: 0 }
       ];
 
-      // --- Stacked Bar Chart ---
-      const barTraces = stages.map(stage => ({
-        x: cleanData.map(d => d.date),
-        y: cleanData.map(d => d[stage.key]),
-        name: stage.label,
-        type: "bar",
-        marker: { color: stage.color }
-      }));
-
-      Plotly.newPlot("stacked-bar", barTraces, {
-        barmode: "stack",
-        title: "Sleep Stages per Night",
-        xaxis: { title: "Date" },
-        yaxis: { title: "Hours" },
-        legend: { orientation: "h", y: -0.3 }
-      });
-
-      // --- Trend Line Chart ---
-      const lineTraces = stages.map(stage => ({
+      // --- Prepare traces for line chart ---
+      const traces = stages.map(stage => ({
         x: cleanData.map(d => d.date),
         y: cleanData.map(d => d[stage.key]),
         name: stage.label,
         type: "scatter",
         mode: "lines+markers",
-        line: { color: stage.color, width: 2 }
+        line: { color: stage.color, width: 2 },
+        marker: { size: 6 }
       }));
 
-      Plotly.newPlot("trend-line", lineTraces, {
-        title: "Sleep Trends Over Time",
-        xaxis: { title: "Date" },
-        yaxis: { title: "Hours" },
-        legend: { orientation: "h", y: -0.3 }
-      });
+      // --- Layout configuration ---
+      const layout = {
+        title: "Sleep Stages Over Time",
+        xaxis: {
+          title: "Date",
+          showgrid: true,
+          gridcolor: "#eee"
+        },
+        yaxis: {
+          title: "Hours",
+          showgrid: true,
+          gridcolor: "#eee"
+        },
+        legend: { orientation: "h", y: -0.3 },
+        // Horizontal lines for recommended sleep stages
+        shapes: [
+          // Recommended horizontal lines
+          ...stages.map(stage => ({
+            type: "line",
+            xref: "paper", // span entire chart width
+            x0: 0,
+            x1: 1,
+            y0: stage.recommended,
+            y1: stage.recommended,
+            line: { color: stage.color, width: 1.5, dash: "dash" },
+          })),
+          // Vertical lines for Garmin devices
+          {
+            type: "line",
+            xref: "x",
+            yref: "paper",
+            x0: "2023-07-10",
+            x1: "2023-07-10",
+            y0: 0,
+            y1: 1,
+            line: { color: "black", width: 2, dash: "dot" }
+          },
+          {
+            type: "line",
+            xref: "x",
+            yref: "paper",
+            x0: "2025-07-03",
+            x1: "2025-07-03",
+            y0: 0,
+            y1: 1,
+            line: { color: "black", width: 2, dash: "dot" }
+          }
+        ],
+        annotations: [
+          // Annotate Garmin periods
+          {
+            x: "2023-07-10",
+            y: 0,
+            xref: "x",
+            yref: "y",
+            text: "Vivoactive 4s",
+            showarrow: true,
+            arrowhead: 2,
+            ax: 0,
+            ay: -40
+          },
+          {
+            x: "2025-07-03",
+            y: 0,
+            xref: "x",
+            yref: "y",
+            text: "Forerunner 965",
+            showarrow: true,
+            arrowhead: 2,
+            ax: 0,
+            ay: -40
+          }
+        ]
+      };
 
-      // --- Heatmap ---
-      const heatmapData = [{
-        z: cleanData.map(d => [d.deepSleepHours, d.lightSleepHours, d.remSleepHours, d.awakeSleepHours]),
-        x: ["Deep", "Light", "REM", "Awake"],
-        y: cleanData.map(d => d.date),
-        type: "heatmap",
-        colorscale: "Viridis",
-        reversescale: true
-      }];
-
-      Plotly.newPlot("heatmap", heatmapData, {
-        title: "Sleep Stages Heatmap",
-        xaxis: { title: "Stage" },
-        yaxis: { title: "Date" }
-      });
+      // --- Render the chart ---
+      Plotly.newPlot("sleep-chart", traces, layout);
 
     }).catch(err => {
       console.error("Error loading CSV:", err);

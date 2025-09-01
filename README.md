@@ -3,4 +3,4 @@ Examine sleep stages - deep, light, REM, awake, and total sleep — to see wheth
 Data downloaded from my personal Garmin account.
 
 
-# Please VISIT: **https://ekuginyte.github.io/Garmin_Explore/sleep_stages.html**
+## Please VISIT: **https://ekuginyte.github.io/Garmin_Explore/sleep_stages.html**

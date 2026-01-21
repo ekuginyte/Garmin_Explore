@@ -2,6 +2,7 @@ import os
 import json
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 import matplotlib.dates as mdates
 
 ################################## sleepData ##########################################
